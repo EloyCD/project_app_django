@@ -79,7 +79,7 @@ Use your preferred IDE, such as Visual Studio Code (VSC), to clone the repositor
 ### `Deployment:`
  Prepare your application for deployment by setting DEBUG to False in settings.py and configuring your ALLOWED_HOSTS. Choose a deployment platform and follow its specific deployment instructions.
 
-By following these steps, you will have developed a functional web application using Django for managing a video game catalog, complete with
+By following these steps, you will have developed a functional web application using Django for managing a video game catalog.
 
 
 
