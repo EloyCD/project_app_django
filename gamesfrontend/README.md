@@ -1,6 +1,7 @@
-# Getting Started with Create React App
+## Frontend - React
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+● React Application: A single-page application (SPA) that provides a user interface, making
+asynchronous requests to the Django REST API to perform CRUD operations..
 
 ## Available Scripts
 
