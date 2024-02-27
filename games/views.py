@@ -1,26 +1,17 @@
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-from .models import Game
-from .serializers import GameSerializer
+from django.http import HttpResponse
+from .db_utils import connect_db, create_record
 
-class GameListCreateAPIView(ListCreateAPIView):
-    queryset = Game.objects.all()
-    serializer_class = GameSerializer
+def create_game(request):
+    conn = connect_db()
+    data = {
+        'name': 'New Game',
+        'genre': 'Puzzle',
+        # ... otros campos
+    }
+    create_record(conn, 'game_table', data)
+    conn.close()
+    return HttpResponse("Game created successfully")
 
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
-class GameDetailAPIView(RetrieveUpdateDestroyAPIView):
-    queryset = Game.objects.all()
-    serializer_class = GameSerializer
-
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
 
 
 
