@@ -1,5 +1,5 @@
 from django.http import HttpResponse
-from .db_utils import connect_db, create_record
+from .videogames import connect_db, create_record
 
 def create_game(request):
     conn = connect_db()
