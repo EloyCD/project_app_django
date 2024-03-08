@@ -1,114 +1,166 @@
-import os  # Import os module to access environment variables.
-import psycopg2 # Import psycopg2 to make the connection to a database.
+import os
 from dotenv import load_dotenv
+import psycopg2
+from psycopg2 import sql, extras
 
+# Load environment variables from the '.env' file in the current directory
 load_dotenv()
 
-def connection_db(): # Let's establish a connection with the database and return something....
+def connect_db():
+    """Attempts to establish a connection with the database and returns the connection."""
     try:
-       connection = psycopg2.connect(
-           host=os.environ.get("DB_HOST"), # environ is an object of type dictionary of module os
-           port=os.environ.get("DB_PORT"),
-           dbname=os.environ.get("DB_NAME"),
-           user=os.environ.get("DB_USER"),
-           password=os.environ.get("DB_PASSWORD"),
-         )
-       return connection
-    except psycopg2.Error as Error: # I have renamed by the word Error.
-     print(f"It was not possible to connect to the database: {Error}")
-     print(Error)
-     return None
-    
-connection = connection_db() # establish a connection to the database
-if connection is not None:
-   cur = connection.cursor() # cur allows you to interact with the database by executing SQL queries and obtaining results.
-   insert_record = 'INSERT INTO videojuegos(id, name, genre, platform, release_year) VALUES (%s, %s, %s, %s, %s)' # %s is a placeholder indicating where the value should be inserted.
-   insert_value = (8, "Top Spin", "Sport", "PlayStation3", 2009) # Insert videogame 
-   cur.execute(insert_record, insert_value) # Executes the connection to the database by inserting the record and the value.
-   connection.commit() # Saves the changes made to the database.
-   cur.close() # Closes the cursor that has been used to perform SQL queries on the database.
-   connection.close() # Closes the connection to the database.
+        conn = psycopg2.connect(
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            host=os.getenv("DB_HOST")
+        )
+        return conn
+    except psycopg2.Error as e:
+        print(f"Error connecting to the database: {e}")
+        return None
 
-def create_game(id, name, genre, platform, release_year):
-    print("Id:", id)
-    print("Name:", name)
-    print("Genre:", genre)
-    print("Platform:", platform)
-    print("Release_year:", release_year)
-
-    
-    connection = psycopg2.connect(
-           host=os.environ.get("DB_HOST"), # environ is an object of type dictionary of module os
-           port=os.environ.get("DB_PORT"),
-           dbname=os.environ.get("DB_NAME"),
-           user=os.environ.get("DB_USER"),
-           password=os.environ.get("DB_PASSWORD"),
+def create_record(conn, table, data):
+    """Inserts a new record into the database."""
+    keys = ', '.join(data.keys())
+    values = ', '.join(['%s'] * len(data))
+    query = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+        sql.Identifier(table),
+        sql.SQL(keys),
+        sql.SQL(values)
     )
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, list(data.values()))
+        conn.commit()
+    except psycopg2.Error as e:
+        print(f"Error inserting record: {e}")
+        conn.rollback()
 
-    # Create cursor
-    cur = connection.cursor()
+def read_record(conn, table, criteria):
+    """Gets records from the database based on a criterion."""
+    where_clause = sql.SQL(' AND ').join([sql.SQL("{} = %s").format(sql.Identifier(k)) for k in criteria])
+    query = sql.SQL("SELECT * FROM {} WHERE {}").format(sql.Identifier(table), where_clause)
+    try:
+        with conn.cursor(cursor_factory=extras.DictCursor) as cursor:
+            cursor.execute(query, list(criteria.values()))
+            result = cursor.fetchall()
+        return result
+    except psycopg2.Error as e:
+        print(f"Error reading records: {e}")
+        return []
 
-    # Insert videogame into database 
-    insert_record = 'INSERT INTO videojuegos(id, name, genre, platform, release_year) VALUES (%s, %s, %s, %s, %s)'
-    insert_value = (id, name, genre, platform, release_year)
-    cur.execute(insert_record, insert_value)
+def update_record(conn, table, data, criteria):
+    """Updates records in the database based on a criterion."""
+    set_clause = sql.SQL(', ').join([sql.SQL("{} = %s").format(sql.Identifier(k)) for k in data])
+    where_clause = sql.SQL(' AND ').join([sql.SQL("{} = %s").format(sql.Identifier(k)) for k in criteria])
+    query = sql.SQL("UPDATE {} SET {} WHERE {}").format(sql.Identifier(table), set_clause, where_clause)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, list(data.values()) + list(criteria.values()))
+        conn.commit()
+    except psycopg2.Error as e:
+        print(f"Error updating record: {e}")
+        conn.rollback()
 
-    # transacction ok
-    connection.commit()
+def delete_record(conn, table, criteria):
+    """Deletes records from the database based on a criterion."""
+    where_clause = sql.SQL(' AND ').join([sql.SQL("{} = %s").format(sql.Identifier(k)) for k in criteria])
+    query = sql.SQL("DELETE FROM {} WHERE {}").format(sql.Identifier(table), where_clause)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, list(criteria.values()))
+        conn.commit()
+    except psycopg2.Error as e:
+        print(f"Error deleting record: {e}")
+        conn.rollback()
 
-    # Close cursor and connect
-    cur.close()
-    connection.close()
+if __name__ == "__main__":
 
-def read_game(name):
+    # CREATE
+    videogames = {
+        "name": "Mario Kart",
+        "genre": "Sport",
+        "platform": "DS",
+        "release_year": 2007
+    }
+
+    conn = connect_db()
+    if conn is not None:
+        try:
+            create_record(conn, 'videojuegos', videogames)
+            print("Video game inserted successfully into the database.")
+        except Exception as e:
+            print(f"Error inserting video game: {e}")
+        finally:
+            conn.close()
+
+    # READ
+    # conn = connect_db()
+    # if conn is not None:
+    #     try:
+    #         # Criterion to identify the video game to read
+    #         criteria = {"name": "Resident Evil Village"}
+            
+    #         # Reads the video game based on the criterion
+    #         result = read_record(conn, 'video_games', criteria)
+    #         if result:
+    #             print("Video Game Information:")
+    #             for row in result:
+    #                 print(f"Name: {row['name']}")
+    #                 print(f"Genre: {row['genre']}")
+    #                 print(f"Platform: {row['platform']}")
+    #                 print(f"Release Year: {row['release_year']}")
+    #         else:
+    #             print("Video game not found in the database.")
+    #     except Exception as e:
+    #         print(f"Error reading video game: {e}")
+    #     finally:
+    #         # Closes the connection to the database
+    #         conn.close()
+
+
+    # UPDATE
+    # conn = connect_db()
+    # if conn is not None:
+    #     try:
+    #         # Criterion to identify the video game to update
+    #         criteria = {"name": "Resident Evil Village"}
+            
+    #         # New data to update the video game
+    #         new_data = {
+    #             "genre": "Adventure, Action, Horror, Survival Horror",
+    #             "platform": "PlayStation 5",
+    #             "release_year": 2021
+    #         }
+            
+    #         # Updates the video game based on the criterion and the new data
+    #        
+    # Updates the video game based on the criterion and the new data
+    #         update_record(conn, 'video_games', new_data, criteria)
+    #         print("Video game updated successfully in the database.")
+    #     except Exception as e:
+    #         print(f"Error updating video game: {e}")
+    #     finally:
+    #         # Closes the connection to the database
+    #         conn.close()
     
-    print("Enter the game name:", name)
-    
-    connection = psycopg2.connect(
-           host=os.environ.get("DB_HOST"), # environ is an object of type dictionary of module os
-           port=os.environ.get("DB_PORT"),
-           dbname=os.environ.get("DB_NAME"),
-           user=os.environ.get("DB_USER"),
-           password=os.environ.get("DB_PASSWORD"),
-    )
+    # DELETE
+    # conn = connect_db()
+    # if conn is not None:
+    #     try:
+    #         # Criterion to identify the video game to delete
+    #         criteria = {"name": "Metal Gear"}
+            
+    #         # Deletes the video game based on the criterion
+    #         delete_record(conn, 'videojuegos', criteria)
+    #         print("Video game deleted successfully from the database.")
+    #     except Exception as e:
+    #         print(f"Error deleting video game: {e}")
+    #     finally:
+    #         # Closes the connection to the database
+    #         conn.close()
 
-    # Create cursor
-    cur = connection.cursor()
-
-    # Insert videogame into database 
-    read_record = 'SELECT * FROM videojuegos WHERE name = %s, %s'
-    cur.execute(read_record, (name,))
-
-    # transacction ok
-    connection.commit()
-
-    # Close cursor and connect
-    cur.close()
-    connection.close()
-
-def update_game(id, name=None, genre=None, platform=None, release_year=None):
-# In this case, we expect an id to be entered when the update function is called, we specify None since there is no value entered at first.
-    
-    connection = psycopg2.connect(
-           host=os.environ.get("DB_HOST"),
-           port=os.environ.get("DB_PORT"),
-           dbname=os.environ.get("DB_NAME"),
-           user=os.environ.get("DB_USER"),
-           password=os.environ.get("DB_PASSWORD"),
-    )
-   
-    cur = connection.cursor()
-    update_record = "UPDATE videojuegos SET "
-    update_values = [] # The corresponding value is updated in the database.
-
-    if name:
-      update_game = update_game + "nombre = '" + name + "', "
-    if genre:
-      update_game = update_game + "genero = '" + genre + "', "
-    if platform:
-      update_game = update_game + "plataforma = '" + platform + "', "
-    if release_year:
-      update_game = update_game + "año = '" + str(release_year) + "', "
 
 
 
